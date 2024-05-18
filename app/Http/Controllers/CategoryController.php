@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class categoryController extends Controller
 {
-    public function store(Request $request)
+    public function create(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|max:255',
@@ -30,38 +30,13 @@ class categoryController extends Controller
             'message' => 'Data berhasil disimpan'
         ])->setStatusCode(201);
     }
-    function showAll(){
+    function Read(){
         $category = Category::all();
         return response()->json([
             'msg' => 'Data Produk Keseluruhan',
             'data' => $category
         ],200);
 
-    }
-
-    function showById($id){
-        $category = Category::where('id', $id)->first();
-        if ($category) {
-            return response()->json([
-                'msg' => 'Data Produk Dengan ID: '.$id,
-                'data' => $category
-            ],200);
-        }
-        return response()->json([
-           'msg' => 'Data Produk dengan ID: '.$id.' Tidak Ditemukan'
-        ],404);
-    }
-    function showByName($category_name){
-        $category = Category::where('category_name', 'LIKE','%'.$category_name.'%')->get();
-        if ($category->count() > 0 ) {
-            return response()->json([
-                'msg' => 'Data Produk Dengan Nama Yang Mirip: '.$category_name,
-                'data' => $category
-            ],200);
-        }
-        return response()->json([
-           'msg' => 'Data Produk dengan Nama Yang Mirip: '.$category_name.' Tidak Ditemukan'
-        ],404);
     }
     
     public function update(Request $request, $id)

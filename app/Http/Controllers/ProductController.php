@@ -9,10 +9,11 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    public function store(Request $request)
+    public function create(Request $request)
     {
         $data = JWT::decode($request->bearerToken(), new Key(env('JWT_SECRET_KEY'), 'HS256'));
         $user = User::find($data->id);
@@ -22,7 +23,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|integer',
-            'image' => 'nullable|string|max:255',
+            'image' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048', // Validate file type and size
             'category_id' => 'required|string|max:255', // Accept category as name or id
             'expired_at' => 'required|date',
         ]);
@@ -58,6 +59,13 @@ class ProductController extends Controller
             return response()->json(['message' => 'User ID not found'], 401);
         }
 
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imagePath = $image->store('images', 'public'); // Store the image in the 'public/images' directory
+            $validated['image'] = $imagePath; // Save the path to the database
+        }
+
         // Add user email as modified_by
         $validated['modified_by'] = $userEmail;
 
@@ -70,41 +78,13 @@ class ProductController extends Controller
         ], 200);
     }
 
-    public function showAll()
+    public function read()
     {
         $products = Product::all();
         return response()->json([
             'msg' => 'Data Produk Keseluruhan',
             'data' => $products
         ], 200);
-    }
-
-    public function showById($id)
-    {
-        $product = Product::find($id);
-        if ($product) {
-            return response()->json([
-                'msg' => 'Data Produk Dengan ID: ' . $id,
-                'data' => $product
-            ], 200);
-        }
-        return response()->json([
-            'msg' => 'Data Produk dengan ID: ' . $id . ' Tidak Ditemukan'
-        ], 404);
-    }
-
-    public function showByName($name)
-    {
-        $products = Product::where('name', 'LIKE', '%' . $name . '%')->get();
-        if ($products->count() > 0) {
-            return response()->json([
-                'msg' => 'Data Produk Dengan Nama Yang Mirip: ' . $name,
-                'data' => $products
-            ], 200);
-        }
-        return response()->json([
-            'msg' => 'Data Produk dengan Nama Yang Mirip: ' . $name . ' Tidak Ditemukan'
-        ], 404);
     }
 
     public function update(Request $request, $id)
@@ -116,7 +96,7 @@ class ProductController extends Controller
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'price' => 'sometimes|integer',
-            'image' => 'nullable|string|max:255',
+            'image' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048', // Validate file type and size
             'category_id' => 'sometimes|string|max:255', // Accept category as name or id
             'expired_at' => 'sometimes|date',
         ]);
@@ -160,6 +140,18 @@ class ProductController extends Controller
         $product = Product::find($id);
 
         if ($product) {
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                // Delete the old image if it exists
+                if ($product->image) {
+                    Storage::disk('public')->delete($product->image);
+                }
+
+                $image = $request->file('image');
+                $imagePath = $image->store('images', 'public'); // Store the new image
+                $validated['image'] = $imagePath; // Update the image path in the validated data
+            }
+
             $product->update($validated);
 
             return response()->json([
@@ -173,12 +165,16 @@ class ProductController extends Controller
         ], 404);
     }
 
-
     public function delete($id)
     {
         $product = Product::find($id);
 
         if ($product) {
+            // Delete the image from storage if it exists
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+
             $product->delete();
 
             return response()->json([
